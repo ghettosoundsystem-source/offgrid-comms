@@ -1,1 +1,1319 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="theme-color" content="#0b1117" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <title>OffGrid Comms • Campsite BLE Mesh</title>
+  <style>
+    :root {
+      --bg-base: #0b1117;
+      --bg-surface: #131c26;
+      --bg-elevated: #1b2735;
+      --border-subtle: #263647;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --accent-emerald: #10b981;
+      --accent-emerald-dim: rgba(16, 185, 129, 0.16);
+      --accent-sky: #38bdf8;
+      --accent-amber: #f59e0b;
+      --accent-red: #ef4444;
+      --accent-red-dim: rgba(239, 68, 68, 0.18);
+      --safe-top: env(safe-area-inset-top, 12px);
+      --safe-bottom: env(safe-area-inset-bottom, 12px);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-base);
+      color: var(--text-primary);
+      height: 100dvh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      user-select: none;
+    }
+
+    /* Header */
+    header {
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: calc(var(--safe-top) + 8px) 16px 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      z-index: 20;
+    }
+
+    .brand-block {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #059669, #0284c7);
+      display: grid;
+      place-items: center;
+      font-weight: 800;
+      font-size: 16px;
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(16, 185, 129, 0.3);
+    }
+
+    .brand-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.2px;
+    }
+
+    .brand-sub {
+      font-size: 11px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent-emerald);
+      box-shadow: 0 0 8px var(--accent-emerald);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.5; transform: scale(0.85); }
+    }
+
+    .mesh-pill {
+      background: var(--accent-emerald-dim);
+      border: 1px solid rgba(16, 185, 129, 0.4);
+      color: #6ee7b7;
+      font-size: 11px;
+      font-weight: 700;
+      padding: 5px 10px;
+      border-radius: 999px;
+      white-space: nowrap;
+    }
+
+    /* SOS Banner */
+    #sos-banner {
+      display: none;
+      background: var(--accent-red);
+      color: #fff;
+      padding: 10px 16px;
+      font-size: 13px;
+      font-weight: 700;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      animation: flashBanner 1.2s infinite alternate;
+    }
+
+    #sos-banner.active {
+      display: flex;
+    }
+
+    @keyframes flashBanner {
+      from { background: #dc2626; }
+      to { background: #991b1b; }
+    }
+
+    .sos-dismiss {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.4);
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* Main Content Views */
+    main {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .view {
+      display: none;
+      flex: 1;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    .view.active {
+      display: flex;
+    }
+
+    /* Channel Switcher */
+    .channel-bar {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      padding: 10px 14px;
+      background: var(--bg-surface);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .channel-btn {
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      padding: 9px 10px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .channel-btn.active {
+      background: var(--accent-emerald-dim);
+      border-color: var(--accent-emerald);
+      color: #fff;
+    }
+
+    .channel-btn.vault.active {
+      background: rgba(56, 189, 248, 0.16);
+      border-color: var(--accent-sky);
+      color: #fff;
+    }
+
+    /* Quick Action Chips */
+    .quick-strip {
+      display: flex;
+      gap: 8px;
+      padding: 8px 14px;
+      overflow-x: auto;
+      background: var(--bg-base);
+      border-bottom: 1px solid var(--border-subtle);
+      scrollbar-width: none;
+    }
+
+    .quick-strip::-webkit-scrollbar { display: none; }
+
+    .chip {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      padding: 6px 11px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+    }
+
+    .chip:active { transform: scale(0.96); }
+
+    .chip.sos {
+      background: var(--accent-red-dim);
+      border-color: rgba(239, 68, 68, 0.5);
+      color: #fca5a5;
+    }
+
+    /* Chat Feed */
+    .chat-feed {
+      flex: 1;
+      overflow-y: auto;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      user-select: text;
+    }
+
+    .msg-card {
+      max-width: 85%;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 10px 13px;
+      align-self: flex-start;
+    }
+
+    .msg-card.self {
+      align-self: flex-end;
+      background: #132a24;
+      border-color: rgba(16, 185, 129, 0.45);
+    }
+
+    .msg-card.vault-msg.self {
+      background: #112636;
+      border-color: rgba(56, 189, 248, 0.45);
+    }
+
+    .msg-card.sos-msg {
+      align-self: stretch;
+      max-width: 100%;
+      background: var(--accent-red-dim);
+      border-color: var(--accent-red);
+    }
+
+    .msg-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .msg-sender {
+      font-weight: 700;
+      color: var(--accent-sky);
+    }
+
+    .msg-card.self .msg-sender {
+      color: var(--accent-emerald);
+    }
+
+    .hop-badge {
+      background: rgba(255, 255, 255, 0.07);
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-size: 10px;
+    }
+
+    .msg-body {
+      font-size: 14px;
+      line-height: 1.45;
+      word-break: break-word;
+    }
+
+    .pin-action-btn {
+      margin-top: 8px;
+      width: 100%;
+      background: var(--accent-sky);
+      color: #06131d;
+      border: none;
+      border-radius: 8px;
+      padding: 7px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    /* Composer */
+    .composer {
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border-subtle);
+      padding: 10px 12px;
+      display: flex;
+      gap: 8px;
+      align-items: center;
+    }
+
+    .composer input {
+      flex: 1;
+      background: var(--bg-base);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      padding: 11px 14px;
+      border-radius: 12px;
+      font-size: 15px;
+      outline: none;
+    }
+
+    .composer input:focus {
+      border-color: var(--accent-emerald);
+    }
+
+    .send-btn {
+      background: var(--accent-emerald);
+      color: #041d15;
+      border: none;
+      border-radius: 12px;
+      padding: 11px 16px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .send-btn:active { transform: scale(0.96); }
+
+    /* Scrollable Panels (Radar, Compass, Vault) */
+    .panel-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 14px;
+      padding: 15px;
+    }
+
+    .card h3 {
+      font-size: 15px;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .card p {
+      font-size: 13px;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+
+    .stat-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .stat-box {
+      background: var(--bg-base);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 10px;
+    }
+
+    .stat-label {
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .stat-val {
+      font-size: 16px;
+      font-weight: 700;
+      margin-top: 2px;
+      color: var(--text-primary);
+    }
+
+    .peer-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 11px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .peer-item:last-child { border-bottom: none; }
+
+    .btn-secondary {
+      width: 100%;
+      margin-top: 10px;
+      background: var(--bg-elevated);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      padding: 11px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .btn-primary {
+      width: 100%;
+      margin-top: 10px;
+      background: var(--accent-emerald);
+      border: none;
+      color: #041d15;
+      padding: 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    /* Compass Dial */
+    .compass-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 14px 0 6px;
+    }
+
+    .compass-dial {
+      width: 190px;
+      height: 190px;
+      border-radius: 50%;
+      border: 3px solid var(--border-subtle);
+      background: radial-gradient(circle, #162230 0%, #0b1117 75%);
+      position: relative;
+      display: grid;
+      place-items: center;
+      box-shadow: 0 0 25px rgba(56, 189, 248, 0.12);
+    }
+
+    .compass-needle {
+      width: 6px;
+      height: 130px;
+      position: relative;
+      transition: transform 0.35s ease-out;
+    }
+
+    .compass-needle::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: -7px;
+      border-left: 10px solid transparent;
+      border-right: 10px solid transparent;
+      border-bottom: 65px solid var(--accent-emerald);
+    }
+
+    .compass-needle::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: -5px;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-top: 65px solid #475569;
+    }
+
+    .distance-readout {
+      font-size: 28px;
+      font-weight: 800;
+      color: var(--accent-emerald);
+      margin-top: 14px;
+    }
+
+    /* Vault Visual Key Matrix */
+    .vault-matrix {
+      display: grid;
+      grid-template-columns: repeat(8, 1fr);
+      gap: 3px;
+      width: 128px;
+      height: 128px;
+      margin: 12px auto;
+      padding: 8px;
+      background: #fff;
+      border-radius: 10px;
+    }
+
+    .matrix-cell {
+      background: #0b1117;
+      border-radius: 2px;
+    }
+
+    .matrix-cell.off {
+      background: #e2e8f0;
+    }
+
+    .form-input {
+      width: 100%;
+      background: var(--bg-base);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+      padding: 11px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-top: 8px;
+    }
+
+    /* Bottom Navigation Bar */
+    nav {
+      background: var(--bg-surface);
+      border-top: 1px solid var(--border-subtle);
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      padding: 6px 4px calc(var(--safe-bottom) + 6px);
+    }
+
+    .nav-btn {
+      background: none;
+      border: none;
+      color: var(--text-secondary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 2px;
+      cursor: pointer;
+    }
+
+    .nav-btn.active {
+      color: var(--accent-emerald);
+    }
+
+    .nav-icon {
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top App Bar -->
+  <header>
+    <div class="brand-block">
+      <div class="brand-icon">OG</div>
+      <div>
+        <div class="brand-title">OffGrid Comms</div>
+        <div class="brand-sub">
+          <span class="status-dot"></span>
+          <span id="radio-mode-label">Initializing Mesh...</span>
+        </div>
+      </div>
+    </div>
+    <div class="mesh-pill" id="peer-count-pill">3 Nodes Nearby</div>
+  </header>
+
+  <!-- Emergency Site-Wide SOS Alert Banner -->
+  <div id="sos-banner">
+    <span id="sos-banner-text">🚨 SOS ALERT RECEIVED</span>
+    <button class="sos-dismiss" onclick="dismissSos()">Dismiss</button>
+  </div>
+
+  <!-- Main View Container -->
+  <main>
+    <!-- VIEW 1: MESH CHAT -->
+    <section id="view-chat" class="view active">
+      <div class="channel-bar">
+        <button class="channel-btn active" id="tab-public" onclick="switchChannel('public')">
+          <span>🏕️</span> Site Broadcast
+        </button>
+        <button class="channel-btn vault" id="tab-vault" onclick="switchChannel('vault')">
+          <span>🔒</span> Family Vault
+        </button>
+      </div>
+
+      <div class="quick-strip">
+        <button class="chip" onclick="sendGpsPin()">📍 Drop Pitch Pin</button>
+        <button class="chip" onclick="sendQuickText('🏕️ Safe back at the pitch.')">🏕️ At Pitch</button>
+        <button class="chip" onclick="sendQuickText('💧 Heading to water point / facilities.')">💧 Water Run</button>
+        <button class="chip sos" onclick="triggerSosAlert()">🚨 SOS Alert</button>
+      </div>
+
+      <div class="chat-feed" id="chat-feed"></div>
+
+      <form class="composer" onsubmit="handleSendMessage(event)">
+        <input type="text" id="msg-input" placeholder="Message campsite over Bluetooth..." autocomplete="off" />
+        <button type="submit" class="send-btn">Send</button>
+      </form>
+    </section>
+
+    <!-- VIEW 2: PITCH RADAR -->
+    <section id="view-radar" class="view">
+      <div class="panel-scroll">
+        <div class="card">
+          <h3>
+            <span>📡 Bluetooth Mesh Transceiver</span>
+            <span style="font-size:12px; color:var(--accent-emerald);" id="transport-badge">Active</span>
+          </h3>
+          <p id="transport-desc">Dual-role Central + Peripheral BLE discovery active. Packets automatically relay up to 4 hops across nearby devices.</p>
+          <div class="stat-grid">
+            <div class="stat-box">
+              <div class="stat-label">Your Node ID</div>
+              <div class="stat-val" id="my-node-id">OG-0000</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">Battery Profile</div>
+              <div class="stat-val" id="battery-mode-val">Standard</div>
+            </div>
+          </div>
+          <button class="btn-secondary" onclick="toggleBatteryMode()">Switch Weekend Battery Saver</button>
+          <button class="btn-primary" id="sim-ping-btn" onclick="simulateIncomingCamper()">Simulate Incoming Camper Reply</button>
+        </div>
+
+        <div class="card">
+          <h3><span>👥 Discovered Mesh Nodes</span></h3>
+          <div id="peer-list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 3: OFFLINE GPS PITCH COMPASS -->
+    <section id="view-compass" class="view">
+      <div class="panel-scroll">
+        <div class="card">
+          <h3><span>🧭 Offline Satellite Pitch Finder</span></h3>
+          <p>Works in Airplane Mode with zero mobile signal using your device's built-in GPS receiver.</p>
+
+          <div class="compass-wrap">
+            <div class="compass-dial">
+              <div class="compass-needle" id="compass-needle"></div>
+            </div>
+            <div class="distance-readout" id="compass-distance">-- m</div>
+            <div style="font-size:13px; color:var(--text-secondary); margin-top:4px;" id="compass-target-label">
+              Target: Base Caravan / Pitch
+            </div>
+          </div>
+
+          <div class="stat-grid">
+            <div class="stat-box">
+              <div class="stat-label">Bearing</div>
+              <div class="stat-val" id="compass-bearing">0° N</div>
+            </div>
+            <div class="stat-box">
+              <div class="stat-label">GPS Accuracy</div>
+              <div class="stat-val" id="gps-accuracy">Searching...</div>
+            </div>
+          </div>
+
+          <button class="btn-primary" onclick="markCurrentPitch()">📍 Save Current Spot as Base Pitch</button>
+          <button class="btn-secondary" onclick="sendGpsPin()">📡 Broadcast My Location to Chat</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- VIEW 4: VAULT & SETTINGS -->
+    <section id="view-vault" class="view">
+      <div class="panel-scroll">
+        <div class="card">
+          <h3><span>🪪 Your Camper Identity</span></h3>
+          <p>Displayed to nearby campers on the mesh network. No phone number or account required.</p>
+          <input type="text" class="form-input" id="handle-input" placeholder="e.g. Darryll • Base Pitch" />
+          <button class="btn-primary" onclick="saveCamperProfile()">Save Camper Name</button>
+        </div>
+
+        <div class="card">
+          <h3><span>🔐 Private Family Vault (AES-256)</span></h3>
+          <p>Share this offline Vault Key with family members. Messages in the Family Vault tab are encrypted on-device with AES-GCM-256 before transmission.</p>
+          <div class="vault-matrix" id="vault-matrix"></div>
+          <input type="text" class="form-input" id="vault-key-input" maxlength="16" style="text-transform:uppercase; font-weight:700; letter-spacing:1.5px; text-align:center;" />
+          <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px;">
+            <button class="btn-secondary" onclick="generateNewVaultKey()">New Random Key</button>
+            <button class="btn-primary" onclick="applyVaultKey()">Activate Key</button>
+          </div>
+        </div>
+
+        <div class="card">
+          <h3><span>ℹ️ App Architecture & Storage</span></h3>
+          <p>100% serverless offline storage. Messages and coordinates remain locally on your handset.</p>
+          <button class="btn-secondary" style="color:#fca5a5;" onclick="clearLocalHistory()">Clear Local Message History</button>
+          <p style="margin-top:12px; font-size:11px; text-align:center;">OffGrid Comms v1.0 • Built by Aetheria Continuum UK</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Bottom Tab Navigation -->
+  <nav>
+    <button class="nav-btn active" data-view="view-chat" onclick="switchView('view-chat', this)">
+      <span class="nav-icon">💬</span>
+      <span>Mesh Chat</span>
+    </button>
+    <button class="nav-btn" data-view="view-radar" onclick="switchView('view-radar', this)">
+      <span class="nav-icon">📡</span>
+      <span>Pitch Radar</span>
+    </button>
+    <button class="nav-btn" data-view="view-compass" onclick="switchView('view-compass', this)">
+      <span class="nav-icon">🧭</span>
+      <span>Compass</span>
+    </button>
+    <button class="nav-btn" data-view="view-vault" onclick="switchView('view-vault', this)">
+      <span class="nav-icon">🔐</span>
+      <span>Vault & ID</span>
+    </button>
+  </nav>
+
+  <script>
+    /* =========================================================================
+       1. STATE & OFFLINE PERSISTENCE (IndexedDB / localStorage Failsafe)
+       ========================================================================= */
+    const STORAGE_KEY = 'offgrid_comms_state_v1';
+
+    const defaultState = {
+      nodeId: 'OG-' + Math.floor(1000 + Math.random() * 9000),
+      handle: 'Camper • Pitch 01',
+      vaultKey: 'OAK-742',
+      activeChannel: 'public',
+      batterySaver: false,
+      pitchTarget: { name: 'Base Caravan / Pitch', lat: 52.7351, lon: 1.6378 },
+      currentPos: { lat: 52.7362, lon: 1.6391, acc: 12 },
+      seenMsgIds: [],
+      peers: [
+        { id: 'OG-4192', name: 'Sarah • Pitch 14', hops: 1, rssi: -56, lastSeen: 'Just now' },
+        { id: 'OG-8831', name: 'Leo • Ridge Trail', hops: 2, rssi: -74, lastSeen: '1m ago' },
+        { id: 'OG-2045', name: 'Site Warden • Gate', hops: 1, rssi: -61, lastSeen: 'Just now' }
+      ],
+      messages: [
+        {
+          id: 'init-1',
+          channel: 'public',
+          sender: 'Site Warden • Gate',
+          nodeId: 'OG-2045',
+          hops: 1,
+          type: 'text',
+          text: 'Welcome to the site mesh! Zero mobile signal needed—keep Bluetooth on to relay messages across the field.',
+          ts: Date.now() - 360000
+        },
+        {
+          id: 'init-2',
+          channel: 'public',
+          sender: 'Sarah • Pitch 14',
+          nodeId: 'OG-4192',
+          hops: 1,
+          type: 'text',
+          text: 'Fresh water tap by the north hedgerow is running clear.',
+          ts: Date.now() - 180000
+        }
+      ]
+    };
+
+    let state = loadState();
+
+    function loadState() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return structuredClone(defaultState);
+        return { ...structuredClone(defaultState), ...JSON.parse(raw) };
+      } catch (e) {
+        return structuredClone(defaultState);
+      }
+    }
+
+    function saveState() {
+      try {
+        // Keep last 200 deduplication IDs and 150 messages for fast offline performance
+        state.seenMsgIds = state.seenMsgIds.slice(-200);
+        state.messages = state.messages.slice(-150);
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      } catch (e) {
+        console.warn('Storage quota warning:', e);
+      }
+    }
+
+    /* =========================================================================
+       2. OFFLINE AES-GCM-256 VAULT ENCRYPTION (Web Crypto API)
+       ========================================================================= */
+    async function deriveAesKey(passcode) {
+      const enc = new TextEncoder();
+      const keyMaterial = await crypto.subtle.importKey(
+        'raw',
+        enc.encode(passcode.trim().toUpperCase()),
+        { name: 'PBKDF2' },
+        false,
+        ['deriveKey']
+      );
+      return crypto.subtle.deriveKey(
+        {
+          name: 'PBKDF2',
+          salt: enc.encode('offgrid-comms-family-vault-salt-v1'),
+          iterations: 60000,
+          hash: 'SHA-256'
+        },
+        keyMaterial,
+        { name: 'AES-GCM', length: 256 },
+        false,
+        ['encrypt', 'decrypt']
+      );
+    }
+
+    async function encryptVaultPayload(plainText, passcode) {
+      const key = await deriveAesKey(passcode);
+      const iv = crypto.getRandomValues(new Uint8Array(12));
+      const encoded = new TextEncoder().encode(plainText);
+      const encrypted = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, encoded);
+      const combined = new Uint8Array(iv.length + encrypted.byteLength);
+      combined.set(iv, 0);
+      combined.set(new Uint8Array(encrypted), iv.length);
+      return btoa(String.fromCharCode(...combined));
+    }
+
+    async function decryptVaultPayload(base64Str, passcode) {
+      try {
+        const bytes = Uint8Array.from(atob(base64Str), c => c.charCodeAt(0));
+        const iv = bytes.slice(0, 12);
+        const data = bytes.slice(12);
+        const key = await deriveAesKey(passcode);
+        const decrypted = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data);
+        return new TextDecoder().decode(decrypted);
+      } catch (e) {
+        return null; // Wrong Vault Key
+      }
+    }
+
+    /* =========================================================================
+       3. CAPACITOR NATIVE BLE MESH BRIDGE + BROWSER SIMULATOR
+       ========================================================================= */
+    const MESH_SERVICE_UUID = '0000cafe-0000-1000-8000-00805f9b34fb';
+    const MESH_ROOM = 'offgrid-comms-v1';
+    let isNativeBle = false;
+
+    async function initMeshTransport() {
+      const cap = window.Capacitor;
+      const meshPlugin = cap && cap.isNativePlatform && cap.isNativePlatform() && cap.Plugins && cap.Plugins.MeshBle;
+
+      if (meshPlugin) {
+        isNativeBle = true;
+        document.getElementById('radio-mode-label').textContent = 'BLE Mesh Radio Active';
+        document.getElementById('transport-badge').textContent = 'Native BLE';
+        document.getElementById('sim-ping-btn').style.display = 'none';
+
+        try {
+          await meshPlugin.start({
+            room: MESH_ROOM,
+            selfId: state.nodeId,
+            serviceUuid: MESH_SERVICE_UUID,
+            hops: 4
+          });
+
+          meshPlugin.addListener('frame', async (event) => {
+            try {
+              const packet = JSON.parse(event.data);
+              await handleIncomingMeshPacket(packet);
+            } catch (err) {
+              console.warn('Malformed mesh frame ignored');
+            }
+          });
+
+          meshPlugin.addListener('peer', (event) => {
+            updateDiscoveredPeer(event.peer, event.connected);
+          });
+        } catch (err) {
+          document.getElementById('radio-mode-label').textContent = 'Check Bluetooth Permission';
+        }
+      } else {
+        // Browser Preview Mode (works offline on Chromebook / Desktop / Mobile Browser)
+        isNativeBle = false;
+        document.getElementById('radio-mode-label').textContent = 'Field Simulator (Browser)';
+        document.getElementById('transport-badge').textContent = 'Simulator';
+        document.getElementById('transport-desc').textContent =
+          'Running in web browser preview mode. Wrap in Capacitor to switch automatically to live iOS/Android Bluetooth Low Energy mesh radios.';
+      }
+    }
+
+    async function broadcastMeshPacket(packet) {
+      state.seenMsgIds.push(packet.id);
+      saveState();
+
+      if (isNativeBle) {
+        await window.Capacitor.Plugins.MeshBle.broadcast({
+          data: JSON.stringify(packet)
+        });
+      }
+    }
+
+    async function handleIncomingMeshPacket(packet) {
+      if (!packet || !packet.id || state.seenMsgIds.includes(packet.id)) return;
+      state.seenMsgIds.push(packet.id);
+
+      let displayBody = packet.text || '';
+      if (packet.channel === 'vault' && packet.encrypted) {
+        const plain = await decryptVaultPayload(packet.encrypted, state.vaultKey);
+        if (!plain) {
+          // Belongs to another family's private vault; ignore silently
+          saveState();
+          return;
+        }
+        displayBody = plain;
+      }
+
+      const msgObj = {
+        id: packet.id,
+        channel: packet.channel || 'public',
+        sender: packet.sender || packet.nodeId,
+        nodeId: packet.nodeId,
+        hops: packet.hops || 1,
+        type: packet.type || 'text',
+        text: displayBody,
+        coords: packet.coords || null,
+        ts: packet.ts || Date.now()
+      };
+
+      state.messages.push(msgObj);
+      saveState();
+      renderChat();
+
+      if (msgObj.type === 'sos') {
+        showSosBanner(`${msgObj.sender}: ${msgObj.text}`);
+      }
+    }
+
+    function updateDiscoveredPeer(peerId, connected) {
+      const existing = state.peers.find(p => p.id === peerId);
+      if (existing) {
+        existing.lastSeen = connected ? 'Connected' : 'Recently seen';
+      } else if (connected) {
+        state.peers.unshift({
+          id: peerId,
+          name: `Camper (${peerId})`,
+          hops: 1,
+          rssi: -64,
+          lastSeen: 'Connected'
+        });
+      }
+      saveState();
+      renderRadar();
+    }
+
+    /* =========================================================================
+       4. MESSAGING, SOS ALERTS & SIMULATED FIELD REPLIES
+       ========================================================================= */
+    async function handleSendMessage(e) {
+      e.preventDefault();
+      const input = document.getElementById('msg-input');
+      const rawText = input.value.trim();
+      if (!rawText) return;
+      input.value = '';
+      await dispatchMessage(rawText, 'text', null);
+    }
+
+    async function sendQuickText(text) {
+      await dispatchMessage(text, 'text', null);
+    }
+
+    async function triggerSosAlert() {
+      const sosText = `🚨 EMERGENCY / SOS ASSISTANCE NEEDED at ${state.handle}`;
+      await dispatchMessage(sosText, 'sos', state.currentPos);
+      showSosBanner(sosText);
+    }
+
+    async function dispatchMessage(plainText, type, coords) {
+      const msgId = `${state.nodeId}-${Date.now()}`;
+      const channel = type === 'sos' ? 'public' : state.activeChannel;
+
+      const localRecord = {
+        id: msgId,
+        channel,
+        sender: state.handle,
+        nodeId: state.nodeId,
+        hops: 0,
+        type,
+        text: plainText,
+        coords,
+        ts: Date.now()
+      };
+
+      state.messages.push(localRecord);
+      renderChat();
+
+      const wirePacket = {
+        id: msgId,
+        channel,
+        sender: state.handle,
+        nodeId: state.nodeId,
+        hops: 1,
+        type,
+        coords,
+        ts: localRecord.ts
+      };
+
+      if (channel === 'vault') {
+        wirePacket.encrypted = await encryptVaultPayload(plainText, state.vaultKey);
+      } else {
+        wirePacket.text = plainText;
+      }
+
+      await broadcastMeshPacket(wirePacket);
+    }
+
+    function showSosBanner(text) {
+      const banner = document.getElementById('sos-banner');
+      document.getElementById('sos-banner-text').textContent = text;
+      banner.classList.add('active');
+    }
+
+    function dismissSos() {
+      document.getElementById('sos-banner').classList.remove('active');
+    }
+
+    async function simulateIncomingCamper() {
+      const samples = [
+        {
+          sender: 'Sarah • Pitch 14',
+          nodeId: 'OG-4192',
+          hops: 1,
+          type: 'text',
+          text: 'Copy that! Kettle is on at Pitch 14 if anyone wants a brew.'
+        },
+        {
+          sender: 'Leo • Ridge Trail',
+          nodeId: 'OG-8831',
+          hops: 2,
+          type: 'pin',
+          text: '📍 Shared Trail Pin: North Lookout Footpath',
+          coords: { lat: state.currentPos.lat + 0.0024, lon: state.currentPos.lon + 0.0019 }
+        }
+      ];
+      const pick = samples[Math.floor(Math.random() * samples.length)];
+      await handleIncomingMeshPacket({
+        id: 'sim-' + Date.now(),
+        channel: 'public',
+        ...pick,
+        ts: Date.now()
+      });
+    }
+
+    /* =========================================================================
+       5. OFFLINE SATELLITE GPS PITCH COMPASS
+       ========================================================================= */
+    function initGpsWatcher() {
+      if (!('geolocation' in navigator)) return;
+      navigator.geolocation.watchPosition(
+        (pos) => {
+          state.currentPos = {
+            lat: pos.coords.latitude,
+            lon: pos.coords.longitude,
+            acc: Math.round(pos.coords.accuracy)
+          };
+          document.getElementById('gps-accuracy').textContent = `±${state.currentPos.acc} m`;
+          updateCompassUi();
+        },
+        () => {
+          document.getElementById('gps-accuracy').textContent = 'Simulated GPS';
+          updateCompassUi();
+        },
+        { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
+      );
+    }
+
+    function haversineMeters(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const toRad = d => (d * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLon / 2) ** 2;
+      return Math.round(R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)));
+    }
+
+    function bearingDegrees(lat1, lon1, lat2, lon2) {
+      const toRad = d => (d * Math.PI) / 180;
+      const toDeg = r => (r * 180) / Math.PI;
+      const dLon = toRad(lon2 - lon1);
+      const y = Math.sin(dLon) * Math.cos(toRad(lat2));
+      const x =
+        Math.cos(toRad(lat1)) * Math.sin(toRad(lat2)) -
+        Math.sin(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.cos(dLon);
+      return Math.round((toDeg(Math.atan2(y, x)) + 360) % 360);
+    }
+
+    function updateCompassUi() {
+      const dist = haversineMeters(
+        state.currentPos.lat,
+        state.currentPos.lon,
+        state.pitchTarget.lat,
+        state.pitchTarget.lon
+      );
+      const deg = bearingDegrees(
+        state.currentPos.lat,
+        state.currentPos.lon,
+        state.pitchTarget.lat,
+        state.pitchTarget.lon
+      );
+      const dirs = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+      const cardinal = dirs[Math.round(deg / 45) % 8];
+
+      document.getElementById('compass-distance').textContent = `${dist} m`;
+      document.getElementById('compass-bearing').textContent = `${deg}° ${cardinal}`;
+      document.getElementById('compass-target-label').textContent = `Target: ${state.pitchTarget.name}`;
+      document.getElementById('compass-needle').style.transform = `rotate(${deg}deg)`;
+    }
+
+    function markCurrentPitch() {
+      state.pitchTarget = {
+        name: `${state.handle} (Saved Pitch)`,
+        lat: state.currentPos.lat,
+        lon: state.currentPos.lon
+      };
+      saveState();
+      updateCompassUi();
+      alert('Current GPS coordinates saved as your Base Pitch target.');
+    }
+
+    async function sendGpsPin() {
+      const text = `📍 Pitch / Trail Pin (${state.currentPos.lat.toFixed(5)}, ${state.currentPos.lon.toFixed(5)})`;
+      await dispatchMessage(text, 'pin', { ...state.currentPos });
+    }
+
+    function navigateToPin(lat, lon, label) {
+      state.pitchTarget = { name: label, lat, lon };
+      saveState();
+      updateCompassUi();
+      const compassNavBtn = document.querySelector('.nav-btn[data-view="view-compass"]');
+      switchView('view-compass', compassNavBtn);
+    }
+
+    /* =========================================================================
+       6. UI RENDERING & NAVIGATION
+       ========================================================================= */
+    function switchView(viewId, btn) {
+      document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+      document.getElementById(viewId).classList.add('active');
+      document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
+      if (btn) btn.classList.add('active');
+    }
+
+    function switchChannel(channel) {
+      state.activeChannel = channel;
+      document.getElementById('tab-public').classList.toggle('active', channel === 'public');
+      document.getElementById('tab-vault').classList.toggle('active', channel === 'vault');
+      document.getElementById('msg-input').placeholder =
+        channel === 'vault'
+          ? `Encrypted Family Vault (${state.vaultKey})...`
+          : 'Message campsite over Bluetooth...';
+      renderChat();
+    }
+
+    function renderChat() {
+      const feed = document.getElementById('chat-feed');
+      const filtered = state.messages.filter(m => m.channel === state.activeChannel);
+      feed.innerHTML = '';
+
+      filtered.forEach(msg => {
+        const isSelf = msg.nodeId === state.nodeId;
+        const card = document.createElement('div');
+        card.className = `msg-card ${isSelf ? 'self' : ''} ${msg.channel === 'vault' ? 'vault-msg' : ''} ${msg.type === 'sos' ? 'sos-msg' : ''}`;
+
+        const timeStr = new Date(msg.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        const hopText = isSelf ? 'Sent' : msg.hops === 1 ? 'Direct BLE' : `${msg.hops} Hops`;
+
+        const meta = document.createElement('div');
+        meta.className = 'msg-meta';
+        meta.innerHTML = `<span class="msg-sender">${escapeHtml(msg.sender)}</span><span class="hop-badge">${hopText} • ${timeStr}</span>`;
+
+        const body = document.createElement('div');
+        body.className = 'msg-body';
+        body.textContent = msg.text;
+
+        card.appendChild(meta);
+        card.appendChild(body);
+
+        if (msg.coords) {
+          const navBtn = document.createElement('button');
+          navBtn.className = 'pin-action-btn';
+          navBtn.textContent = '🧭 Open in Pitch Compass';
+          navBtn.onclick = () => navigateToPin(msg.coords.lat, msg.coords.lon, `${msg.sender} Pin`);
+          card.appendChild(navBtn);
+        }
+
+        feed.appendChild(card);
+      });
+
+      feed.scrollTop = feed.scrollHeight;
+    }
+
+    function renderRadar() {
+      document.getElementById('my-node-id').textContent = state.nodeId;
+      document.getElementById('battery-mode-val').textContent = state.batterySaver ? 'Weekend Saver' : 'Standard';
+      document.getElementById('peer-count-pill').textContent = `${state.peers.length} Nodes Nearby`;
+
+      const list = document.getElementById('peer-list');
+      list.innerHTML = '';
+      state.peers.forEach(p => {
+        const row = document.createElement('div');
+        row.className = 'peer-item';
+        row.innerHTML = `
+          <div>
+            <div style="font-weight:700; font-size:14px;">${escapeHtml(p.name)}</div>
+            <div style="font-size:12px; color:var(--text-secondary);">${escapeHtml(p.id)} • ${p.hops === 1 ? 'Direct Link' : `Relayed (${p.hops} hops)`}</div>
+          </div>
+          <div style="text-align:right;">
+            <div style="font-size:12px; font-weight:700; color:var(--accent-emerald);">${p.rssi} dBm</div>
+            <div style="font-size:11px; color:var(--text-secondary);">${escapeHtml(p.lastSeen)}</div>
+          </div>
+        `;
+        list.appendChild(row);
+      });
+    }
+
+    function renderVaultMatrix() {
+      const matrix = document.getElementById('vault-matrix');
+      matrix.innerHTML = '';
+      const key = state.vaultKey || 'OAK-742';
+      let hash = 0;
+      for (let i = 0; i < key.length; i++) {
+        hash = (hash * 31 + key.charCodeAt(i)) >>> 0;
+      }
+      for (let i = 0; i < 64; i++) {
+        const cell = document.createElement('div');
+        const bit = ((hash >> (i % 24)) ^ (i * 7)) & 1;
+        cell.className = bit ? 'matrix-cell' : 'matrix-cell off';
+        matrix.appendChild(cell);
+      }
+    }
+
+    function toggleBatteryMode() {
+      state.batterySaver = !state.batterySaver;
+      saveState();
+      renderRadar();
+    }
+
+    function saveCamperProfile() {
+      const val = document.getElementById('handle-input').value.trim();
+      if (val) {
+        state.handle = val;
+        saveState();
+        alert(`Camper handle updated to "${state.handle}".`);
+      }
+    }
+
+    function generateNewVaultKey() {
+      const words = ['OAK', 'PINE', 'FERN', 'FOX', 'HAWK', 'ASH', 'BROOK', 'STAR'];
+      const w = words[Math.floor(Math.random() * words.length)];
+      const num = Math.floor(100 + Math.random() * 899);
+      document.getElementById('vault-key-input').value = `${w}-${num}`;
+    }
+
+    function applyVaultKey() {
+      const val = document.getElementById('vault-key-input').value.trim().toUpperCase();
+      if (val.length < 3) return;
+      state.vaultKey = val;
+      saveState();
+      renderVaultMatrix();
+      renderChat();
+      alert(`Family Vault locked to key: ${state.vaultKey}`);
+    }
+
+    function clearLocalHistory() {
+      state.messages = [];
+      saveState();
+      renderChat();
+    }
+
+    function escapeHtml(str) {
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    /* Boot Sequence */
+    (async function boot() {
+      document.getElementById('handle-input').value = state.handle;
+      document.getElementById('vault-key-input').value = state.vaultKey;
+      renderChat();
+      renderRadar();
+      renderVaultMatrix();
+      updateCompassUi();
+      initGpsWatcher();
+      await initMeshTransport();
+    })();
+  </script>
+</body>
+</html>
 
