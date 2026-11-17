@@ -1,1 +1,17 @@
 
+{
+  "name": "offgrid-comms",
+  "version": "1.0.0",
+  "description": "Offline BLE Mesh Messenger & Satellite Pitch Compass by Aetheria Continuum UK",
+  "private": true,
+  "scripts": {
+    "cap:sync": "npx cap sync"
+  },
+  "dependencies": {
+    "@capacitor/android": "^7.0.0",
+    "@capacitor/cli": "^7.0.0",
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/ios": "^7.0.0",
+    "capacitor-mesh-ble": "git+https://github.com/forgesworn/capacitor-mesh-ble.git"
+  }
+}
