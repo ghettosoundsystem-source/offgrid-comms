@@ -1,4 +1,3 @@
-
 {
   "name": "offgrid-comms",
   "version": "1.0.0",
@@ -8,10 +7,11 @@
     "cap:sync": "npx cap sync"
   },
   "dependencies": {
-    "@capacitor/android": "^7.0.0",
-    "@capacitor/cli": "^7.0.0",
-    "@capacitor/core": "^7.0.0",
-    "@capacitor/ios": "^7.0.0",
+    "@capacitor/android": "^8.0.0",
+    "@capacitor/assets": "^3.0.5",
+    "@capacitor/cli": "^8.0.0",
+    "@capacitor/core": "^8.0.0",
+    "@capacitor/ios": "^8.0.0",
     "capacitor-mesh-ble": "git+https://github.com/forgesworn/capacitor-mesh-ble.git"
   }
 }
