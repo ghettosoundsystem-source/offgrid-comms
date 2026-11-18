@@ -1,0 +1,100 @@
+import os
+import math
+from PIL import Image, ImageDraw
+
+os.makedirs("assets", exist_ok=True)
+os.makedirs("store-assets", exist_ok=True)
+
+BG_DARK = (11, 17, 23, 255)       # #0b1117
+RING_SKY = (56, 189, 248, 255)    # #38bdf8
+EMERALD = (16, 185, 129, 255)     # #10b981
+EMERALD_SOFT = (16, 185, 129, 70)
+WHITE = (241, 245, 249, 255)
+SLATE = (71, 85, 105, 255)
+
+
+def draw_emblem(canvas: Image.Image, center_xy: tuple, radius: int):
+    draw = ImageDraw.Draw(canvas, "RGBA")
+    cx, cy = center_xy
+
+    # Outer glow ring
+    draw.ellipse(
+        [cx - radius, cy - radius, cx + radius, cy + radius],
+        outline=EMERALD_SOFT,
+        width=max(6, radius // 18),
+    )
+
+    # Mid mesh ring
+    r_mid = int(radius * 0.74)
+    draw.ellipse(
+        [cx - r_mid, cy - r_mid, cx + r_mid, cy + r_mid],
+        outline=RING_SKY,
+        width=max(5, radius // 24),
+    )
+
+    # Inner radar ring
+    r_in = int(radius * 0.48)
+    draw.ellipse(
+        [cx - r_in, cy - r_in, cx + r_in, cy + r_in],
+        outline=EMERALD,
+        width=max(4, radius // 32),
+    )
+
+    # Mesh relay nodes around the ring
+    node_r = max(10, radius // 16)
+    for angle_deg in (45, 165, 285):
+        rad = math.radians(angle_deg)
+        nx = cx + int(r_mid * math.cos(rad))
+        ny = cy + int(r_mid * math.sin(rad))
+        draw.ellipse(
+            [nx - node_r, ny - node_r, nx + node_r, ny + node_r],
+            fill=EMERALD,
+            outline=BG_DARK,
+            width=max(3, node_r // 3),
+        )
+
+    # Compass needle (North emerald, South slate)
+    needle_len = int(radius * 0.56)
+    needle_w = int(radius * 0.14)
+    # Tilted 28 degrees NE for dynamic look
+    tilt = math.radians(-28)
+    cos_t, sin_t = math.cos(tilt), math.sin(tilt)
+
+    def rot(px, py):
+        return (cx + int(px * cos_t - py * sin_t), cy + int(px * sin_t + py * cos_t))
+
+    north_tip = rot(0, -needle_len)
+    south_tip = rot(0, needle_len)
+    left_pt = rot(-needle_w, 0)
+    right_pt = rot(needle_w, 0)
+
+    draw.polygon([north_tip, right_pt, left_pt], fill=EMERALD)
+    draw.polygon([south_tip, right_pt, left_pt], fill=SLATE)
+
+    # Center pivot pin
+    piv = max(8, radius // 20)
+    draw.ellipse([cx - piv, cy - piv, cx + piv, cy + piv], fill=WHITE)
+
+
+# 1. 1024x1024 Full Icon (iOS App Store & Android Legacy)
+icon_full = Image.new("RGBA", (1024, 1024), BG_DARK)
+draw_emblem(icon_full, (512, 512), 380)
+icon_full.save("assets/icon-only.png")
+icon_full.resize((512, 512), Image.LANCZOS).save("store-assets/play-store-icon-512.png")
+icon_full.save("store-assets/app-store-icon-1024.png")
+
+# 2. 1024x1024 Adaptive Foreground & Background (Android 12+)
+icon_fg = Image.new("RGBA", (1024, 1024), (0, 0, 0, 0))
+draw_emblem(icon_fg, (512, 512), 310)
+icon_fg.save("assets/icon-foreground.png")
+
+icon_bg = Image.new("RGBA", (1024, 1024), BG_DARK)
+icon_bg.save("assets/icon-background.png")
+
+# 3. 2732x2732 Splash Screens (Light & Dark)
+for fname in ("assets/splash.png", "assets/splash-dark.png"):
+    splash = Image.new("RGBA", (2732, 2732), BG_DARK)
+    draw_emblem(splash, (1366, 1366), 420)
+    splash.save(fname)
+
+print("Generated all OffGrid Comms brand icons and splash screens.")
